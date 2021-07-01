@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>dataTables with JSON datasource</title>
+    <link rel="stylesheet" href="resources/css/jquery-ui.css">
+    <link rel="stylesheet" type="text/css" href="resources/css/jquery.dataTables.css">
+    <link rel="stylesheet" type="text/css" href="resources/syntax/shCore.css">
+    <link rel="stylesheet" type="text/css" href="resources/demo1.css">
+    <style type="text/css" class="init">
+
+        /* hide the next/previous tabs */
+        .dataTables_paginate {
+
+            display: none;
+        }
+    </style>
+    <script type="text/javascript" language="javascript" src="resources/js/jquery-1.12.4.js"></script>
+    <script src="resources/js/jquery-ui.js"></script>
+    <script type="text/javascript" language="javascript" src="resources/js/jquery.dataTables.js"></script>
+    <script type="text/javascript" language="javascript" src="resources/syntax/shCore.js"></script>
+    <script type="text/javascript" language="javascript" src="resources/demo.js"></script>
+    <script src="resources/js/socket.io.js"></script>
+    <script src="resources/js/filterArray.js"></script>
+    <script type="text/javascript" language="javascript" class="init">
+        var myTable;
+        var d1 = "";
+        var d2 = "";
+        var dataSet = [];
+
+        const socket = io();
+
+
+        //
+        $(document).ready(function () {
+            $(function () {
+                $("#pick1").datepicker({
+                    defaultDate: "-1w",
+                    changeMonth: true,
+                    changeYear: true,
+                    numberOfMonths: 1,
+                    // dateFormat:"dd.mm.yy"
+                    dateFormat: "yy-mm-dd"
+                })
+                    .on("change", function () {
+                        d1 = this.value;
+                    })
+                    .on('changeDate', function (ev) {
+                        this.hide();
+                    });
+                $("#pick2").datepicker({
+                    defaultDate: "-1w",
+                    changeMonth: true,
+                    changeYear: true,
+                    numberOfMonths: 1,
+                    // dateFormat:"dd.mm.yy"
+                    dateFormat: "yy-mm-dd"
+                })
+                    .on("change", function () {
+                        d2 = this.value;
+                        sp.click();
+                    })
+                    .on('changeDate', function (ev) {
+                        this.hide();
+                    });
+            });
+
+            myTable = $('#example').DataTable({
+                processing: true,
+                destroy: true,
+                bRetrieve: true,
+                data: dataSet,
+                columns: [
+                    { title: "ORDERID" },
+                    { title: "CUSTOMERID" },
+                    { title: "EMPID", className: "dt-body-center" },
+                    { title: "ORDERDATE" },
+                    { title: "REQUIREDDATE" },
+                    { title: "SHIPPEDDATE" },
+                    { title: "SHIPVIA", className: "dt-body-center" },
+                    { title: "FREIGHT", className: "dt-body-right" },  //"numericCol"},
+                    { title: "SHIPNAME" },
+                    { title: "SHIPADDRESS" },
+                    { title: "SHIPCITY" },
+                    { title: "SHIPREGION" },
+                    { title: "SHIPPOSTALCODE" },
+                    { title: "SHIPCOUNTRY" }
+                ],
+                "lengthMenu": [[5, 15, 50, -1], [5, 15, 50, "All"]],
+                "iDisplayLength": -1,
+                //###########################################################################################    
+                initComplete: function () {
+                    this.api().columns().every(function () {
+                        var column = this;
+                        var select = $('<select style="font-size:11px;"><option value=""></option></select>')
+                            .appendTo($(column.footer()).empty())
+                            .on('change', function () {
+                                console.log("ONchange" + $(this).val());
+                                var val = $.fn.dataTable.util.escapeRegex(
+                                    $(this).val()
+                                );
+                                console.log("VAL::" + val + ":::" + $(this).val());
+                                column
+                                    .search(val ? '^' + val + '$' : '', true, false)
+                                    .draw();
+                            });
+                        column.data().unique().sort().each(function (d, j) {
+                            select.append('<option style="font-size:11px;" value="' + d + '">' + d + '</option>');
+                            console.log("D#J::::" + d + "##" + j + "::" + $("#elementId :selected").text()); //$("option:selected", this).val())
+                        });
+                    });
+                }
+            });
+
+            $('#example tfoot th').each(function () {
+                var title = $('#example thead th').eq($(this).index()).text();
+                console.log("TITLE:::" + title);
+                if (title === "ORDERDATE") {
+                    $(this).html('<input type="text" id="pick1" style="font-size:11px;height:15px;width:40%" placeholder="from..."/><input type="text" id="pick2" style="font-size:11px;height:15px;width:40%" placeholder="...to" /><!--input type="button" onclick="sp.click()"  style="font-size:11px;height:15px;width: 4px" id="dtrange" value="*"/-->');
+                } /* else {
+            if (title === "Satzindex") {
+              //   $(this).html( '<input type="text" style="font-size:11px;" id="datepicker" />' );
+             }
+        }    */
+            });
+
+            // Apply the filter
+            $("#example tfoot input").on('keyup change', function () {
+                console.log($('#example thead th').eq($(this).parent().index()).text())
+                if ($('#example thead th').eq($(this).parent().index()).text() != "ORDERDATE") {
+                    myTable
+                        .column($(this).parent().index() + ':visible')
+                        .search(this.value)
+                        .draw();
+                } else {
+                    //Handling Range
+                    $('#pick1').keyup(function () { myTable.draw(); });
+                    $('#pick2').keyup(function () { myTable.draw(); });
+                }
+            });
+            //show on top
+            $('#example tfoot tr').appendTo('#example thead');
+
+        });
+//
+
+    </script>
+</head>
+
+<body>
+    <div class="container">
+        <div class="row" style="visibility:hidden;height:5px">
+            <button style="margin-top: 5px;" class="btn btn-warning btn-block" id="sp">FIND</button>
+        </div>
+        <table id="example" class="display compact" cellspacing="0" width="100%">
+            <tfoot>
+                <tr>
+                    <th>ORDERID</th>
+                    <th>CUSTOMERID</th>
+                    <th>EMPID</th>
+                    <th>ORDERDATE</th>
+                    <th>REQUIREDDATE</th>
+                    <th>SHIPPEDDATE</th>
+                    <th>SHIPVIA</th>
+                    <th>FREIGHT</th>
+                    <th>SHIPNAME</th>
+                    <th>SHIPADDRESS</th>
+                    <th>SHIPCITY</th>
+                    <th>SHIPREGION</th>
+                    <th>SHIPPOSTALCODE</th>
+                    <th>SHIPCOUNTRY</th>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+
+    <script>
+        (function () {
+            const element = id => document.getElementById(id)
+            let sp = element('sp')
+            let gn = element('gn')
+            let nres = element('nres')
+            let current = element('current')
+
+            // Check for connection
+            if (socket !== undefined) {
+                let currentUser = -1
+                console.log('connected to socket...')
+            }
+
+            socket.emit('find', {
+                source: 20171109,
+                target: 20171109,
+                init: 1
+            })
+
+
+            sp.addEventListener('click', event => {
+                socket.emit('find', {
+                    source: d1,
+                    target: d2,
+                    init: 0
+                })
+                event.preventDefault()
+            })
+
+
+
+
+
+            socket.on('numsre', data => {
+                nres.innerHTML = data.map(d => d.numbers)[0].map(d => d.number).map(dat => `<li class="list-group-item" style="cursor: pointer;"> ${dat}</li >`).reduce((a, b) => a + b)
+            })
+
+
+            /*   ################################################################## */
+            socket.on('result', function (myres) {
+                // console.log("in RESULT::" + JSON.stringify(myres));
+                console.log("in RESULT::" + d1 + ":::" + d2);
+                if ((d1 != '--') && (d2 > d1)) {
+                    let filterResult = myres.filter(ds =>
+                        ds.ORDERDATE >= d1 && ds.ORDERDATE <= d2);
+                    //ds.ORDERDATE == '2016-09-09');
+                    console.log(JSON.stringify(filterResult));
+                    myres = filterResult;
+                }
+                dataSet = [];
+                myres.forEach(function (obj) {
+                    var a = [];
+                    //console.log(obj.ORDERID);
+                    a.push(obj.ORDERID);
+                    a.push(obj.CUSTOMERID);
+                    a.push(obj.EMPLOYEEID);
+                    a.push(obj.ORDERDATE);
+                    a.push(obj.REQUIREDDATE);
+                    a.push(obj.SHIPPEDDATE);
+                    a.push(obj.SHIPVIA);
+                    a.push(obj.FREIGHT.toFixed(2));
+                    a.push(obj.SHIPNAME);
+                    a.push(obj.SHIPADDRESS);
+                    a.push(obj.SHIPCITY);
+                    a.push(obj.SHIPREGION);
+                    a.push(obj.SHIPPOSTALCODE);
+                    a.push(obj.SHIPCOUNTRY);
+
+                    dataSet.push(a);
+                });
+                myTable.clear().rows.add(dataSet).draw();
+                myTable.columns([0, 1, 2, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]).every(function () {
+                    var column = this;
+                    var select = $('<select style="font-size:11px;"><option value=""></option></select>')
+                        .appendTo($(column.footer()).empty())
+                        .on('change', function () {
+                            var val = $.fn.dataTable.util.escapeRegex(
+                                $(this).val()
+                            );
+                            column
+                                .search(val ? '^' + val + '$' : '', true, false)
+                                .draw();
+                        });
+                    column.data().unique().sort().each(function (d, j) {
+                        select.append('<option style="font-size:11px;" value="' + d + '">' + d + '</option>');
+                    });
+                });
+            });
+        })()
+    </script>
+</body>
+
+</html>
